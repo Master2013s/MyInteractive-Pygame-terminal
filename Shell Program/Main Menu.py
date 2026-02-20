@@ -3,14 +3,24 @@ import random, os
 import subprocess, pygame
 from pygame.locals import *
 import threading, queue
-
+# Set audio driver based on OS to avoid issues
+if os.name == 'nt':  # Windows
+    os.environ['SDL_AUDIODRIVER'] = 'dsound'  # Use DirectSound on Windows
+else:
+    os.environ['SDL_AUDIODRIVER'] = 'dummy'  # Use dummy on other systems to avoid ALSA issues
 # Import the shell module (must be in the same folder)
 import Shell
 
 # --- Fix 1: Added necessary init for sound/display ---
-pygame.mixer.pre_init(44100, -16, 2, 512)
-pygame.init()
-pygame.mixer.init() # Recommended to init mixer once, not inside function
+try:
+    pygame.mixer.pre_init(44100, -16, 2, 512)
+    pygame.init()
+    pygame.mixer.init() # Recommended to init mixer once, not inside function
+    audio_enabled = True
+except Exception as e:
+    print(f"Audio initialization failed: {e}. Running without audio.")
+    pygame.init()  # Init without mixer
+    audio_enabled = False
 size = (1000, 500)
 screen = pygame.display.set_mode(size, pygame.RESIZABLE) 
 clock = pygame.time.Clock() 
@@ -126,6 +136,8 @@ class Terminal:
 
 
 def SFX_player(Folder2, SFX_name):
+    if not audio_enabled:
+        return  # Skip if audio not available
     script_dir = os.path.dirname(os.path.abspath(__file__))
     sound_path = os.path.join(Folder2, SFX_name)
     try:
@@ -221,6 +233,8 @@ terminal = Terminal(20, 110, 760, 360)
 def shell_thread_target():
     try:
         app = Shell.MyInteractiveShell(UserName="Guest")
+        # Set the callback for creating tabs
+        Shell.create_tab_callback = add_tab
         # Use .stdin.readline() instead of raw_input so we can feed lines from a queue
         app.use_rawinput = False
         # Attach custom stdin/stdout
@@ -324,10 +338,25 @@ while running:
     if current_panel == 'terminal':
         terminal.draw(screen)
     else:
-        other_rect = content_area
-        pygame.draw.rect(screen, pygame.Color('white'), other_rect)
-        info = font.render('Other panel content goes here.', True, pygame.Color('black'))
-        screen.blit(info, (other_rect.x + 10, other_rect.y + 10))
+        # Find the current tab
+        current_tab = next((t for t in tabs if t['id'] == current_panel), None)
+        if current_tab:
+            content = current_tab['content']
+            if callable(content):
+                content(screen, content_area)
+            elif content == 'other':
+                pygame.draw.rect(screen, pygame.Color('white'), content_area)
+                info = font.render('Other panel content goes here.', True, pygame.Color('black'))
+                screen.blit(info, (content_area.x + 10, content_area.y + 10))
+            else:
+                # Default: show the content as text
+                pygame.draw.rect(screen, pygame.Color('white'), content_area)
+                info = font.render(f'Panel: {content}', True, pygame.Color('black'))
+                screen.blit(info, (content_area.x + 10, content_area.y + 10))
+        else:
+            pygame.draw.rect(screen, pygame.Color('white'), content_area)
+            info = font.render('Unknown panel.', True, pygame.Color('black'))
+            screen.blit(info, (content_area.x + 10, content_area.y + 10))
 
     pygame.display.flip() 
     clock.tick(60) 
