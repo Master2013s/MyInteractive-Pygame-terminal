@@ -1,0 +1,4 @@
+Username,Password,Password2,Operator
+ethan,1231,1231,False
+bowser,1324,986,False
+dummy,2020,2021,False
