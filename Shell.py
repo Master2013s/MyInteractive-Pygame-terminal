@@ -32,7 +32,7 @@ import cmd
 
 class MyInteractiveShell(cmd.Cmd):
     intro = 'Welcome to My Interactive Shell. Type help or ? to list commands. Please Login/Sign Up To Continue.'
-
+    prompt = ' '
     _Login_commands = ['']
     
     def __init__(self, UserName="Guest", Password2=None, Password1=None, logged_in=False):
